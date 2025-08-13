@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Destiny Date</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #ffe6f0;
+        margin: 0;
+        padding: 0;
+        text-align: center;
+    }
+    header {
+        background: linear-gradient(to right, pink, violet);
+        padding: 15px;
+        color: white;
+        font-size: 1.8em;
+        font-weight: bold;
+    }
+    section {
+        padding: 15px;
+        margin: auto;
+        max-width: 500px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        margin-top: 20px;
+    }
+    input, button, textarea {
+        padding: 8px;
+        margin: 5px;
+        width: 90%;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+    }
+    button {
+        background: hotpink;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    img {
+        max-width: 100px;
+        border-radius: 50%;
+        margin-top: 10px;
+    }
+    #chat-box {
+        max-height: 200px;
+        overflow-y: auto;
+        text-align: left;
+        border: 1px solid #ccc;
+        padding: 5px;
+        margin-top: 10px;
+    }
+    .msg {
+        background: #f8d9e6;
+        padding: 5px;
+        border-radius: 5px;
+        margin: 3px 0;
+    }
+    .from-me {
+        background: #c7f5d9;
+    }
+</style>
+</head>
+<body>
+
+<header>💖 Destiny Date 💖</header>
+
+<section id="auth-section">
+    <h2>Login / Sign Up</h2>
+    <input type="email" id="email" placeholder="Email"><br>
+    <input type="password" id="password" placeholder="Password"><br>
+    <button onclick="signUp()">Sign Up</button>
+    <button onclick="login()">Login</button>
+</section>
+
+<section id="profile-section" style="display:none;">
+    <h2>Create Profile</h2>
+    <input type="text" id="username" placeholder="Username"><br>
+    <input type="file" id="profilePic"><br>
+    <button onclick="saveProfile()">Save Profile</button>
+    <div id="profileInfo"></div>
+</section>
+
+<section id="post-section" style="display:none;">
+    <h2>Create Post</h2>
+    <textarea id="postText" placeholder="What's on your mind?"></textarea><br>
+    <input type="file" id="postImage"><br>
+    <button onclick="createPost()">Post</button>
+    <div id="posts"></div>
+</section>
+
+<section id="group-section" style="display:none;">
+    <h2>Create Group</h2>
+    <input type="text" id="groupName" placeholder="Group Name"><br>
+    <button onclick="createGroup()">Create Group</button>
+    <div id="groups"></div>
+</section>
+
+<section id="users-section" style="display:none;">
+    <h2>Search Users & Chat</h2>
+    <div id="userList"></div>
+</section>
+
+<section id="chat-section" style="display:none;">
+    <h2>Chat with <span id="chatWithName"></span></h2>
+    <div id="chat-box"></div>
+    <input type="text" id="chatMessage" placeholder="Type a message...">
+    <button onclick="sendMessage()">Send</button>
+</section>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js"></script>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyBzvbxh-eHNlD3md2ebMp6rP5IeZCzOiow",
+    authDomain: "destiny-date.firebaseapp.com",
+    projectId: "destiny-date",
+    storageBucket: "destiny-date.firebasestorage.app",
+    messagingSenderId: "970784032702",
+    appId: "1:970784032702:web:acbd39cba6d84f81a15bef",
+    measurementId: "G-T1L8Q2NPQW"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const analytics = firebase.analytics();
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  const storage = firebase.storage();
+
+  let currentChatUser = null;
+
+  function signUp(){
+    const email = document.getElementById('email').value;
+    const pass = document.getElementById('password').value;
+    auth.createUserWithEmailAndPassword(email, pass)
+    .then(() => alert("Signed Up!"))
+    .catch(err => alert(err.message));
+  }
+
+  function login(){
+    const email = document.getElementById('email').value;
+    const pass = document.getElementById('password').value;
+    auth.signInWithEmailAndPassword(email, pass)
+    .then(() => {
+        document.getElementById('auth-section').style.display = 'none';
+        document.getElementById('profile-section').style.display = 'block';
+        document.getElementById('post-section').style.display = 'block';
+        document.getElementById('group-section').style.display = 'block';
+        document.getElementById('users-section').style.display = 'block';
+        loadUsers();
+    })
+    .catch(err => alert(err.message));
+  }
+
+  function saveProfile(){
+    const username = document.getElementById('username').value;
+    const file = document.getElementById('profilePic').files[0];
+    const uid = auth.currentUser.uid;
+    if(file){
+      const ref = storage.ref('profiles/'+uid);
+      ref.put(file).then(() => {
+        ref.getDownloadURL().then(url => {
+          db.collection('profiles').doc(uid).set({username, photo:url, uid});
+          document.getElementById('profileInfo').innerHTML = `<p>${username}</p><img src='${url}'>`;
+        });
+      });
+    }
+  }
+
+  function createPost(){
+    const text = document.getElementById('postText').value;
+    const file = document.getElementById('postImage').files[0];
+    if(file){
+      const ref = storage.ref('posts/'+Date.now());
+      ref.put(file).then(() => {
+        ref.getDownloadURL().then(url => {
+          db.collection('posts').add({text, image:url, time:Date.now()});
+        });
+      });
+    } else {
+      db.collection('posts').add({text, image:null, time:Date.now()});
+    }
+  }
+
+  db.collection('posts').orderBy('time','desc').onSnapshot(snap=>{
+    let html = '';
+    snap.forEach(doc=>{
+      const p = doc.data();
+      html += `<div style='border-bottom:1px solid #ccc;padding:5px;'>
+                 <p>${p.text}</p>
+                 ${p.image? `<img src='${p.image}' style='max-width:200px;'>`:''}
+               </div>`;
+    });
+    document.getElementById('posts').innerHTML = html;
+  });
+
+  function createGroup(){
+    const name = document.getElementById('groupName').value;
+    db.collection('groups').add({name, creator: auth.currentUser.uid, time: Date.now()});
+  }
+
+  db.collection('groups').orderBy('time','desc').onSnapshot(snap=>{
+    let html = '';
+    snap.forEach(doc=>{
+      const g = doc.data();
+      html += `<p>${g.name}</p>`;
+    });
+    document.getElementById('groups').innerHTML = html;
+  });
+
+  function loadUsers(){
+    db.collection('profiles').onSnapshot(snap=>{
+      let html = '';
+      snap.forEach(doc=>{
+        const u = doc.data();
+        if(u.uid !== auth.currentUser.uid){
+          html += `<p onclick="startChat('${u.uid}','${u.username}')">${u.username}</p>`;
+        }
+      });
+      document.getElementById('userList').innerHTML = html;
+    });
+  }
+
+  function startChat(uid, name){
+    currentChatUser = uid;
+    document.getElementById('chatWithName').textContent = name;
+    document.getElementById('chat-section').style.display = 'block';
+    loadMessages();
+  }
+
+  function sendMessage(){
+    const msg = document.getElementById('chatMessage').value;
+    if(msg.trim() === '') return;
+    const myUid = auth.currentUser.uid;
+    const chatId = [myUid, currentChatUser].sort().join('_');
+    db.collection('chats').doc(chatId).collection('messages').add({
+      from: myUid,
+      text: msg,
+      time: Date.now()
+    });
+    document.getElementById('chatMessage').value = '';
+  }
+
+  function loadMessages(){
+    const myUid = auth.currentUser.uid;
+    const chatId = [myUid, currentChatUser].sort().join('_');
+    db.collection('chats').doc(chatId).collection('messages')
+    .orderBy('time','asc').onSnapshot(snap=>{
+      let html = '';
+      snap.forEach(doc=>{
+        const m = doc.data();
+        html += `<div class="msg ${m.from===myUid?'from-me':''}">${m.text}</div>`;
+      });
+      document.getElementById('chat-box').innerHTML = html;
+    });
+  }
+</script>
+
+</body>
+</html>
