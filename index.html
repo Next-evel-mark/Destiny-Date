@@ -1,0 +1,751 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Destiny Date — Full App</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    :root{
+      --bg: #120519; --card: rgba(255,255,255,0.04); --accent:#8a2be2; --muted:#c5c3e6;
+    }
+    html,body{height:100%;margin:0;font-family:Inter,Segoe UI,system-ui,Arial;background:linear-gradient(135deg,#0b0520,#2d0b5e);color:#fff}
+    .wrap{max-width:1100px;margin:24px auto;padding:20px}
+    header{display:flex;align-items:center;gap:16px;justify-content:space-between}
+    .logo{display:flex;align-items:center;gap:12px;font-weight:700;font-size:1.4rem;color:var(--accent)}
+    .nav{display:flex;gap:8px}
+    .nav button{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 12px;border-radius:999px;color:#fff;cursor:pointer}
+    .grid{display:grid;grid-template-columns:360px 1fr;gap:20px;margin-top:20px}
+    .card{background:var(--card);border:1px solid rgba(138,43,226,0.12);padding:16px;border-radius:12px}
+    input,textarea,select,button{font-family:inherit}
+    input,textarea,select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);color:#fff;margin-top:8px}
+    button.primary{background:var(--accent);border:none;padding:10px 14px;border-radius:10px;color:#fff;cursor:pointer}
+    .muted{color:var(--muted);font-size:0.9rem}
+    .profile-preview{width:96px;height:96px;border-radius:50%;overflow:hidden;border:3px solid var(--accent);display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25)}
+    .post video{width:100%;border-radius:8px;margin-top:8px}
+    .row{display:flex;gap:8px;align-items:center}
+    .pill{padding:6px 10px;border-radius:999px;background:rgba(138,43,226,0.12);color:var(--muted)}
+    .small{font-size:0.9rem}
+    .user-card{display:flex;gap:10px;align-items:center;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.02);margin-bottom:8px}
+    .user-card img{width:48px;height:48px;border-radius:50%;object-fit:cover}
+    .actions{display:flex;gap:8px;margin-top:8px}
+    .icon-btn{background:transparent;border:none;color:#fff;cursor:pointer;font-size:1rem}
+    .right{margin-left:auto}
+    @media (max-width:900px){.grid{grid-template-columns:1fr;}.nav{flex-wrap:wrap}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo"><i class="fas fa-heart"></i> Destiny Date</div>
+      <div class="nav" id="topNav">
+        <button onclick="showTab('home')">Home</button>
+        <button onclick="showTab('feed')">Feed</button>
+        <button onclick="showTab('groups')">Groups</button>
+        <button onclick="showTab('dm')">DMs</button>
+        <button onclick="showTab('profile')">Profile</button>
+        <button id="btnLogout" style="display:none" onclick="logout()">Logout</button>
+      </div>
+    </header>
+
+    <!-- content layout -->
+    <div class="grid">
+      <!-- left column -->
+      <div>
+        <!-- Auth card -->
+        <div class="card" id="authCard">
+          <h3 id="authTitle">Create account / Login</h3>
+          <div id="authForm">
+            <label class="muted">Email</label>
+            <input id="inpEmail" type="email" placeholder="you@example.com">
+            <label class="muted">Password</label>
+            <input id="inpPassword" type="password" placeholder="password (min 6)">
+            <div style="display:flex;gap:8px;margin-top:10px;">
+              <button class="primary" onclick="registerEmail()">Sign up</button>
+              <button onclick="loginEmail()">Login</button>
+            </div>
+            <p class="muted small" style="margin-top:8px">Signed in? complete profile and upload short videos on Feed.</p>
+          </div>
+        </div>
+
+        <!-- users / search -->
+        <div class="card" id="peopleCard" style="margin-top:12px">
+          <div class="row">
+            <h4 style="margin:0">People</h4>
+            <div class="right pill" id="onlineCount">0 online</div>
+          </div>
+          <input id="searchPeople" placeholder="Search username or interests..." oninput="searchPeople()">
+          <div id="peopleList" style="margin-top:12px;max-height:420px;overflow:auto"></div>
+        </div>
+
+        <!-- groups list -->
+        <div class="card" style="margin-top:12px">
+          <div class="row"><h4 style="margin:0">Your Groups</h4></div>
+          <div id="groupList" style="margin-top:8px;max-height:160px;overflow:auto"></div>
+        </div>
+      </div>
+
+      <!-- right column -->
+      <div>
+        <!-- Home tab -->
+        <div class="card" id="homeTab">
+          <h2>Welcome to Destiny Date</h2>
+          <p class="muted">Create profile, post short videos (≤ 30s), join groups, and send private messages.</p>
+        </div>
+
+        <!-- Feed -->
+        <div class="card" id="feedTab" style="display:none;margin-top:12px">
+          <div class="row">
+            <h3 style="margin:0">Short Video Feed</h3>
+            <div class="right pill" id="feedStats">0 posts</div>
+          </div>
+          <div style="margin-top:10px;border-top:1px dashed rgba(255,255,255,0.04);padding-top:12px">
+            <label class="muted">Caption</label>
+            <input id="postCaption" placeholder="Say something...">
+            <label class="muted">Upload video (mp4 / webm, ≤ 30s)</label>
+            <input id="postVideo" type="file" accept="video/*">
+            <div class="actions">
+              <button class="primary" onclick="createPost()">Post video</button>
+              <div class="muted small">Tip: client validates duration before upload</div>
+            </div>
+          </div>
+
+          <div id="feedList" style="margin-top:12px"></div>
+        </div>
+
+        <!-- Groups tab -->
+        <div class="card" id="groupsTab" style="display:none;margin-top:12px">
+          <h3>Create / Open Group</h3>
+          <label class="muted">Group name</label>
+          <input id="groupName" placeholder="e.g. Hiking Lovers">
+          <label class="muted">Description</label>
+          <input id="groupDesc" placeholder="Short description">
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="primary" onclick="createGroup()">Create Group</button>
+            <button onclick="listAllGroups()">Refresh</button>
+          </div>
+
+          <div id="activeGroupArea" style="display:none;margin-top:12px">
+            <div class="row">
+              <h4 id="activeGroupName" style="margin:0">Group</h4>
+              <div class="right pill" id="activeGroupMembers">0</div>
+            </div>
+            <div style="margin-top:8px">
+              <label class="muted">Message</label>
+              <input id="groupMsg" placeholder="Write a message">
+              <label class="muted">Optional short video (≤30s)</label>
+              <input id="groupVideo" type="file" accept="video/*">
+              <div class="actions">
+                <button class="primary" onclick="sendGroupMessage()">Send to group</button>
+                <button onclick="leaveGroup()" style="background:#444">Leave group</button>
+              </div>
+            </div>
+
+            <div id="groupMessages" style="margin-top:12px;max-height:300px;overflow:auto"></div>
+          </div>
+        </div>
+
+        <!-- DMs tab -->
+        <div class="card" id="dmTab" style="display:none;margin-top:12px">
+          <h3>Direct Messages</h3>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="dmSearch" placeholder="Search username..." oninput="dmSearch()">
+            <button onclick="loadConversations()">Convos</button>
+          </div>
+          <div style="display:flex;gap:12px;margin-top:10px">
+            <div style="flex:1;max-height:320px;overflow:auto">
+              <div id="dmUserList"></div>
+            </div>
+            <div style="flex:2">
+              <div id="dmArea" style="display:none">
+                <div class="row"><h4 id="dmWith"></h4><div class="right pill" id="dmStatus">—</div></div>
+                <div id="dmMessages" style="margin-top:8px;max-height:300px;overflow:auto"></div>
+                <label class="muted">Message</label>
+                <input id="dmText" placeholder="Type a message">
+                <label class="muted">Optional short video (≤30s)</label>
+                <input id="dmVideo" type="file" accept="video/*">
+                <div class="actions">
+                  <button class="primary" onclick="sendDm()">Send</button>
+                  <button onclick="closeDm()" style="background:#444">Close</button>
+                </div>
+              </div>
+              <div id="dmEmpty" class="muted">Select a user to start chatting</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Profile tab -->
+        <div class="card" id="profileTab" style="display:none;margin-top:12px">
+          <div class="row">
+            <div>
+              <div class="profile-preview" id="profilePreview"><i class="fas fa-user"></i></div>
+            </div>
+            <div style="flex:1">
+              <label class="muted">Username</label>
+              <input id="profileUsername" placeholder="Choose a username">
+              <label class="muted">Bio</label>
+              <textarea id="profileBio" rows="3"></textarea>
+              <label class="muted">Interests (comma separated)</label>
+              <input id="profileInterests" placeholder="music,travel,books">
+              <label class="muted">Profile photo</label>
+              <input id="profileFile" type="file" accept="image/*">
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="primary" onclick="saveProfile()">Save profile</button>
+                <button onclick="loadMyProfile()" style="background:#444">Reload</button>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:12px" id="profileSavedMsg"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <footer style="margin-top:16px;text-align:center;color:var(--muted)">
+      &copy; <span id="year"></span> Destiny Date — Built with Firebase
+    </footer>
+  </div>
+
+  <!-- Firebase modular SDK (ES modules) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, addDoc, collection, serverTimestamp, onSnapshot, query, orderBy, where, updateDoc, arrayUnion, arrayRemove, getDocs } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+    import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
+
+    // YOUR firebaseConfig (you gave earlier)
+    const firebaseConfig = {
+      apiKey: "AIzaSyBzvbxh-eHNlD3md2ebMp6rP5IeZCzOiow",
+      authDomain: "destiny-date.firebaseapp.com",
+      projectId: "destiny-date",
+      storageBucket: "destiny-date.firebasestorage.app",
+      messagingSenderId: "970784032702",
+      appId: "1:970784032702:web:acbd39cba6d84f81a15bef",
+      measurementId: "G-T1L8Q2NPQW"
+    };
+
+    // initialize
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+
+    // UI helpers
+    const $ = id => document.getElementById(id);
+    const yearEl = $('year'); yearEl.textContent = new Date().getFullYear();
+
+    // Navigation tabs
+    function showTab(name){
+      ['home','feed','groups','dm','profile'].forEach(t => {
+        $(t+'Tab') && ($(t+'Tab').style.display = (t===name? 'block':'none'));
+      });
+      if(name==='feed') { $('feedTab').style.display='block'; }
+      // make sure feed/listeners are active on auth change
+    }
+    window.showTab = showTab;
+
+    // Auth: register & login
+    async function registerEmail(){
+      const email = $('inpEmail').value.trim();
+      const password = $('inpPassword').value;
+      if(!email || !password) return alert('Provide email and password');
+      try{
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        // create user doc
+        await setDoc(doc(db, 'users', cred.user.uid), {
+          uid: cred.user.uid,
+          email,
+          createdAt: serverTimestamp(),
+          username: '',
+          bio: '',
+          interests: '',
+          photoURL: ''
+        });
+        alert('Registered. Please complete your profile.');
+      } catch(e){ console.error(e); alert(e.message); }
+    }
+
+    async function loginEmail(){
+      const email = $('inpEmail').value.trim();
+      const password = $('inpPassword').value;
+      if(!email||!password) return alert('Provide email & password');
+      try{
+        await signInWithEmailAndPassword(auth, email, password);
+        showTab('feed');
+      } catch(e){ console.error(e); alert(e.message); }
+    }
+    window.registerEmail = registerEmail; window.loginEmail = loginEmail;
+
+    async function logout(){
+      await signOut(auth);
+      $('btnLogout').style.display='none';
+      showTab('home');
+    }
+    window.logout = logout;
+
+    // on auth change
+    onAuthStateChanged(auth, async user => {
+      if(user){
+        $('btnLogout').style.display='inline-block';
+        $('authCard').style.display = 'none';
+        $('profileTab').style.display = 'block';
+        $('feedTab').style.display = 'block';
+        $('groupsTab').style.display = 'block';
+        $('dmTab').style.display = 'block';
+        $('peopleCard').style.display = 'block';
+        loadMyProfile();
+        listenFeed();
+        listenMyGroups();
+        loadPeople();
+        loadConversations();
+      } else {
+        $('btnLogout').style.display='none';
+        $('authCard').style.display='block';
+        $('profileTab').style.display='none';
+        $('feedTab').style.display='none';
+        $('groupsTab').style.display='none';
+        $('dmTab').style.display='none';
+        $('peopleCard').style.display='block';
+      }
+    });
+
+    // Profile functions
+    function previewImage(fileInput, previewEl){
+      const f = fileInput.files && fileInput.files[0];
+      if(!f) { previewEl.innerHTML = '<i class=\"fas fa-user\"></i>'; return; }
+      const url = URL.createObjectURL(f);
+      previewEl.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover">`;
+    }
+    $('profileFile').addEventListener('change', () => previewImage($('profileFile'), $('profilePreview')));
+
+    async function saveProfile(){
+      const user = auth.currentUser; if(!user) return alert('Login first');
+      const username = $('profileUsername').value.trim();
+      const bio = $('profileBio').value.trim();
+      const interests = $('profileInterests').value.trim();
+      const file = $('profileFile').files[0];
+      let photoURL = '';
+
+      try{
+        if(file){
+          const ref = sRef(storage, `profiles/${user.uid}/${Date.now()}_${file.name}`);
+          await uploadBytesResumable(ref, file);
+          photoURL = await getDownloadURL(ref);
+          // update firebase auth profile too
+          await updateProfile(user, { displayName: username || user.displayName, photoURL });
+        } else {
+          // keep existing photoURL from Firestore if any
+          const docSnap = await getDoc(doc(db,'users',user.uid));
+          if(docSnap.exists()) photoURL = docSnap.data().photoURL || '';
+        }
+
+        await setDoc(doc(db,'users',user.uid), {
+          uid:user.uid,
+          username,
+          bio,
+          interests,
+          photoURL,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        $('profileSavedMsg').innerHTML = '<div class="muted">Profile saved.</div>';
+        loadMyProfile();
+      } catch(e){ console.error(e); alert(e.message); }
+    }
+    window.saveProfile = saveProfile;
+
+    async function loadMyProfile(){
+      const user = auth.currentUser; if(!user) return;
+      const snap = await getDoc(doc(db,'users',user.uid));
+      if(snap.exists()){
+        const data = snap.data();
+        $('profileUsername').value = data.username || '';
+        $('profileBio').value = data.bio || '';
+        $('profileInterests').value = data.interests || '';
+        if(data.photoURL) $('profilePreview').innerHTML = `<img src="${data.photoURL}" style="width:100%;height:100%;object-fit:cover">`;
+      }
+    }
+
+    // Feed: video validation and upload
+    async function getVideoDuration(file){
+      if(!file) return 0;
+      return await new Promise(res => {
+        const v = document.createElement('video');
+        v.preload = 'metadata';
+        v.onloadedmetadata = ()=>{ URL.revokeObjectURL(v.src); res(v.duration); };
+        v.onerror = ()=> res(Infinity);
+        v.src = URL.createObjectURL(file);
+      });
+    }
+
+    async function createPost(){
+      const user = auth.currentUser; if(!user) return alert('Login first');
+      const caption = $('postCaption').value.trim();
+      const file = $('postVideo').files[0];
+      try{
+        if(!file) return alert('Select a video to post');
+        const duration = await getVideoDuration(file);
+        if(duration > 30.5) return alert('Video must be ≤ 30 seconds');
+        // create doc first
+        const postRef = await addDoc(collection(db,'posts'), {
+          uid: user.uid,
+          caption,
+          createdAt: serverTimestamp(),
+          likes: [],
+          savedBy: []
+        });
+        // upload file
+        const ref = sRef(storage, `posts/${user.uid}/${postRef.id}_${file.name}`);
+        await uploadBytesResumable(ref, file);
+        const videoURL = await getDownloadURL(ref);
+        await updateDoc(postRef, { videoURL });
+        $('postCaption').value = ''; $('postVideo').value = '';
+        showNotification('Posted!');
+      } catch(e){ console.error(e); alert(e.message); }
+    }
+    window.createPost = createPost;
+
+    // Feed listener & render
+    let feedUnsub = null;
+    function listenFeed(){
+      if(feedUnsub) feedUnsub();
+      const q = query(collection(db,'posts'), orderBy('createdAt','desc'));
+      feedUnsub = onSnapshot(q, snap => {
+        const list = [];
+        snap.forEach(docu => list.push({ id: docu.id, ...docu.data() }));
+        renderFeed(list);
+      });
+    }
+
+    function renderFeed(posts){
+      $('feedStats').textContent = `${posts.length} posts`;
+      const html = posts.map(p => {
+        const safeCaption = (p.caption||'').replaceAll('<','&lt;');
+        return `<div class="card post" id="post-${p.id}">
+          <div class="row"><strong>${p.authorName||p.uid}</strong><div class="right pill">${(p.likes||[]).length} ❤️</div></div>
+          <div class="muted small">${safeCaption}</div>
+          ${p.videoURL? `<video src="${p.videoURL}" controls playsinline></video>`: ''}
+          <div class="actions">
+            <button class="icon-btn" onclick="toggleLike('${p.id}')"><i class="far fa-heart"></i></button>
+            <button class="icon-btn" onclick="savePost('${p.id}')"><i class="far fa-bookmark"></i></button>
+            <button class="icon-btn" onclick="sharePost('${p.id}')"><i class="fas fa-share"></i></button>
+          </div>
+        </div>`;
+      }).join('');
+      $('feedList').innerHTML = html || '<div class="muted">No posts yet</div>';
+    }
+
+    // like/save/share
+    async function toggleLike(postId){
+      const user = auth.currentUser; if(!user) return alert('Login first');
+      const pRef = doc(db,'posts',postId);
+      const snap = await getDoc(pRef);
+      const likes = snap.exists() ? (snap.data().likes || []) : [];
+      const has = likes.includes(user.uid);
+      await updateDoc(pRef, { likes: has ? arrayRemove(user.uid) : arrayUnion(user.uid) });
+    }
+    window.toggleLike = toggleLike;
+
+    async function savePost(postId){
+      const user = auth.currentUser; if(!user) return alert('Login first');
+      const pRef = doc(db,'posts',postId);
+      await updateDoc(pRef, { savedBy: arrayUnion(user.uid) });
+      showNotification('Saved');
+    }
+    window.savePost = savePost;
+
+    async function sharePost(postId){
+      const link = location.href.split('#')[0] + '#post=' + postId;
+      try { await navigator.clipboard.writeText(link); showNotification('Post link copied'); } catch { alert(link); }
+    }
+    window.sharePost = sharePost;
+
+    // simple toast
+    function showNotification(msg){
+      const n = document.createElement('div');
+      n.textContent = msg; n.style.position='fixed'; n.style.right='20px'; n.style.top='20px';
+      n.style.background='#28a745'; n.style.padding='10px 14px'; n.style.borderRadius='8px'; n.style.zIndex=9999;
+      document.body.appendChild(n);
+      setTimeout(()=> n.remove(),2500);
+    }
+
+    // People: load and search
+    let peopleCache = [];
+    async function loadPeople(){
+      const snap = await getDocs(collection(db,'users'));
+      peopleCache = [];
+      snap.forEach(d => peopleCache.push(d.data()));
+      renderPeople(peopleCache);
+    }
+
+    function renderPeople(list){
+      $('peopleList').innerHTML = list.map(u => {
+        const img = u.photoURL ? `<img src="${u.photoURL}" />` : `<div style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center"><i class="fas fa-user"></i></div>`;
+        return `<div class="user-card">
+          ${u.photoURL ? `<img src="${u.photoURL}">` : ''}
+          <div style="flex:1">
+            <div><strong>${u.username || 'User'}</strong></div>
+            <div class="muted small">${u.interests||''}</div>
+          </div>
+          <div>
+            <button onclick="openDm('${u.uid}','${(u.username||'User').replaceAll(\"'\",\"\\'\")}')" class="primary">Message</button>
+          </div>
+        </div>`;
+      }).join('') || '<div class="muted">No users yet</div>';
+    }
+    window.loadPeople = loadPeople;
+
+    function searchPeople(){
+      const q = $('searchPeople').value.trim().toLowerCase();
+      if(!q) return renderPeople(peopleCache);
+      const filtered = peopleCache.filter(u => ((u.username||'')+','+(u.interests||'')).toLowerCase().includes(q));
+      renderPeople(filtered);
+    }
+
+    // Groups: create / list / messages
+    let currentGroupId = null;
+    async function createGroup(){
+      const user = auth.currentUser; if(!user) return alert('Login first');
+      const name = $('groupName').value.trim(); if(!name) return alert('Add group name');
+      const desc = $('groupDesc').value.trim();
+      await addDoc(collection(db,'groups'), { name, desc, createdBy: user.uid, members: [user.uid], createdAt: serverTimestamp() });
+      $('groupName').value=''; $('groupDesc').value='';
+      listAllGroups();
+    }
+    window.createGroup = createGroup;
+
+    function listenMyGroups(){
+      const user = auth.currentUser; if(!user) return;
+      const q = query(collection(db,'groups'), where('members','array-contains', user.uid));
+      onSnapshot(q, snap => {
+        const html = [];
+        snap.forEach(d => {
+          const g = d.data();
+          html.push(`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+            <div style="flex:1"><strong>${g.name}</strong><div class="muted small">${g.desc||''}</div></div>
+            <div><button onclick="openGroup('${d.id}','${(g.name||'Group').replaceAll(\"'\",\"\\'\")}')" class="primary">Open</button></div>
+          </div>`);
+        });
+        $('groupList').innerHTML = html.join('') || '<div class="muted">You have no groups</div>';
+      });
+    }
+
+    async function listAllGroups(){
+      const snap = await getDocs(collection(db,'groups'));
+      const html = [];
+      snap.forEach(d => {
+        const g = d.data();
+        html.push(`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+          <div style="flex:1"><strong>${g.name}</strong><div class="muted small">${g.desc||''}</div></div>
+          <div><button onclick="joinGroup('${d.id}')" class="primary">Join</button></div>
+        </div>`);
+      });
+      $('groupList').innerHTML = html.join('');
+    }
+    window.listAllGroups = listAllGroups;
+
+    // open group & listen for messages
+    let groupMessagesUnsub = null;
+    async function openGroup(id, name){
+      currentGroupId = id;
+      $('activeGroupArea').style.display='block';
+      $('activeGroupName').textContent = name;
+      // show members count
+      const docRef = doc(db,'groups',id);
+      const docSnap = await getDoc(docRef);
+      if(docSnap.exists()){ $('activeGroupMembers').textContent = (docSnap.data().members||[]).length + ' members'; }
+      // listen messages
+      if(groupMessagesUnsub) groupMessagesUnsub();
+      const msgsQ = query(collection(db, 'groups', id, 'messages'), orderBy('createdAt','asc'));
+      groupMessagesUnsub = onSnapshot(msgsQ, snap => {
+        const html = [];
+        snap.forEach(m => {
+          const d = m.data();
+          html.push(`<div style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.02)">
+            <div class="muted small">${d.authorName||d.uid}</div>
+            ${d.text? `<div>${d.text}</div>`: ''}
+            ${d.videoURL? `<video src="${d.videoURL}" controls playsinline></video>` : ''}
+            <div class="muted small">${d.createdAt?.toDate? d.createdAt.toDate().toLocaleString() : ''}</div>
+          </div>`);
+        });
+        $('groupMessages').innerHTML = html.join('');
+        $('groupMessages').scrollTop = $('groupMessages').scrollHeight;
+      });
+    }
+    window.openGroup = openGroup;
+
+    async function joinGroup(id){
+      const user = auth.currentUser; if(!user) return alert('Login first');
+      await updateDoc(doc(db,'groups',id), { members: arrayUnion(user.uid) });
+      openGroup(id, (await getDoc(doc(db,'groups',id))).data().name);
+    }
+    window.joinGroup = joinGroup;
+
+    async function leaveGroup(){
+      if(!currentGroupId) return;
+      const user = auth.currentUser; if(!user) return;
+      await updateDoc(doc(db,'groups',currentGroupId), { members: arrayRemove(user.uid) });
+      currentGroupId = null; $('activeGroupArea').style.display='none';
+    }
+    window.leaveGroup = leaveGroup;
+
+    async function sendGroupMessage(){
+      const user = auth.currentUser; if(!user) return alert('Login first');
+      if(!currentGroupId) return alert('Open a group first');
+      const text = $('groupMsg').value.trim();
+      const file = $('groupVideo').files[0];
+      let videoURL = '';
+      try{
+        if(file){
+          const duration = await getVideoDuration(file);
+          if(duration > 30.5) return alert('Group video must be ≤ 30 seconds');
+          const ref = sRef(storage, `groups/${currentGroupId}/${user.uid}_${Date.now()}_${file.name}`);
+          await uploadBytesResumable(ref, file);
+          videoURL = await getDownloadURL(ref);
+        }
+        await addDoc(collection(db,'groups',currentGroupId,'messages'), {
+          uid: user.uid,
+          authorName: user.displayName || $('profileUsername').value || 'User',
+          text,
+          videoURL,
+          createdAt: serverTimestamp()
+        });
+        $('groupMsg').value=''; $('groupVideo').value='';
+      } catch(e){ console.error(e); alert(e.message); }
+    }
+    window.sendGroupMessage = sendGroupMessage;
+
+    // DMs (direct messages)
+    let activeDmUser = null;
+    let dmUnsub = null;
+    async function openDm(uid, username){
+      const me = auth.currentUser; if(!me) return alert('Login first');
+      activeDmUser = uid;
+      $('dmWith').textContent = username;
+      $('dmArea').style.display='block'; $('dmEmpty').style.display='none';
+      loadDmMessages();
+    }
+    window.openDm = openDm;
+
+    // create chat doc id by sorting uids
+    function chatIdFor(a,b){ return [a,b].sort().join('_'); }
+
+    async function sendDm(){
+      const me = auth.currentUser; if(!me) return alert('Login first');
+      if(!activeDmUser) return alert('Open a conversation');
+      const text = $('dmText').value.trim();
+      const file = $('dmVideo').files[0];
+      const cid = chatIdFor(me.uid, activeDmUser);
+      try{
+        let videoURL = '';
+        if(file){
+          const duration = await getVideoDuration(file);
+          if(duration > 30.5) return alert('DM video must be ≤ 30 seconds');
+          const ref = sRef(storage, `dms/${cid}/${me.uid}_${Date.now()}_${file.name}`);
+          await uploadBytesResumable(ref, file);
+          videoURL = await getDownloadURL(ref);
+        }
+        await addDoc(collection(db,'chats',cid,'messages'), {
+          from: me.uid,
+          to: activeDmUser,
+          text,
+          videoURL,
+          createdAt: serverTimestamp()
+        });
+        $('dmText').value=''; $('dmVideo').value='';
+      } catch(e){ console.error(e); alert(e.message); }
+    }
+    window.sendDm = sendDm;
+
+    function loadConversations(){
+      // show list of user profiles to start DMs
+      // reuse peopleCache
+      renderDmUserList(peopleCache);
+    }
+
+    function renderDmUserList(list){
+      $('dmUserList').innerHTML = list.filter(u => u.uid !== auth.currentUser.uid).map(u => {
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid rgba(255,255,255,0.02)">
+          ${u.photoURL ? `<img src="${u.photoURL}" style="width:40px;height:40px;border-radius:50%"/>` : ''}
+          <div style="flex:1"><strong>${u.username||'User'}</strong><div class="muted small">${u.interests||''}</div></div>
+          <div><button class="primary" onclick="openDm('${u.uid}','${(u.username||'User').replaceAll(\"'\",\"\\'\")}')">Open</button></div>
+        </div>`;
+      }).join('') || '<div class="muted">No users found</div>';
+    }
+
+    function dmSearch(){
+      const q = $('dmSearch').value.trim().toLowerCase();
+      if(!q) return renderDmUserList(peopleCache);
+      renderDmUserList(peopleCache.filter(u => ((u.username||'')+','+(u.interests||'')).toLowerCase().includes(q)));
+    }
+
+    function closeDm(){
+      activeDmUser = null; $('dmArea').style.display='none'; $('dmEmpty').style.display='block';
+      if(dmUnsub) dmUnsub();
+    }
+
+    function loadDmMessages(){
+      const me = auth.currentUser; if(!me || !activeDmUser) return;
+      const cid = chatIdFor(me.uid, activeDmUser);
+      if(dmUnsub) dmUnsub();
+      const q = query(collection(db,'chats',cid,'messages'), orderBy('createdAt','asc'));
+      dmUnsub = onSnapshot(q, snap => {
+        const html = [];
+        snap.forEach(d => {
+          const m = d.data();
+          html.push(`<div style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.02)">
+            <div class="muted small">${m.from===me.uid? 'You' : (m.from || '')}</div>
+            ${m.text? `<div>${m.text}</div>` : ''}
+            ${m.videoURL? `<video src="${m.videoURL}" controls playsinline style="max-width:280px;margin-top:6px"></video>` : ''}
+          </div>`);
+        });
+        $('dmMessages').innerHTML = html.join('');
+        $('dmMessages').scrollTop = $('dmMessages').scrollHeight;
+      });
+    }
+
+    // utility: load conversations and people on start
+    async function loadPeople(){
+      const snap = await getDocs(collection(db,'users'));
+      peopleCache = [];
+      snap.forEach(d => peopleCache.push(d.data()));
+      renderPeople(peopleCache);
+      renderDmUserList(peopleCache);
+    }
+
+    // initial feed listen only when logged in is handled earlier
+
+    // small safety: ensure initial people loaded for non-auth users as well
+    (async ()=>{ try { await loadPeople(); } catch(e){} })();
+
+  </script>
+
+  <!-- Firestore security rules (example, paste to console and refine before production):
+  rules_version = '2';
+  service cloud.firestore {
+    match /databases/{database}/documents {
+      match /users/{uid} {
+        allow read: if true;
+        allow write: if request.auth != null && request.auth.uid == uid;
+      }
+      match /posts/{postId} {
+        allow read: if true;
+        allow create: if request.auth != null;
+        allow update, delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      }
+      match /groups/{groupId} {
+        allow read: if true;
+        allow create: if request.auth != null;
+        allow update: if request.auth != null;
+        match /messages/{msgId} { allow read, create: if request.auth != null; }
+      }
+      match /chats/{chatId} {
+        allow read, write: if request.auth != null && request.auth.uid in resource.data.participants;
+        match /messages/{msgId} { allow read, write: if request.auth != null; }
+      }
+    }
+  }
+  -->
+
+</body>
+</html>
