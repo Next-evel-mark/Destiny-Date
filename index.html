@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Destiny Date - Community Chat</title>
+  <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
+  <style>
+    :root {
+      --bg1:#ff6a88; --bg2:#ff99ac; --glass:rgba(255,255,255,.15);
+      --text:#fff; --shadow:0 10px 30px rgba(0,0,0,.15);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial, "Apple Color Emoji","Segoe UI Emoji";
+      color:var(--text); background:linear-gradient(110deg,var(--bg1),var(--bg2));
+      min-height:100svh; display:flex; flex-direction:column;
+    }
+    header{
+      position:sticky; top:0; z-index:10; padding:14px 16px; text-align:center;
+      font-weight:800; letter-spacing:.3px; backdrop-filter:saturate(160%) blur(6px);
+      background:rgba(0,0,0,.25); box-shadow:var(--shadow);
+    }
+    header small{display:block; font-weight:500; opacity:.85; margin-top:4px}
+    .container{flex:1; display:flex; align-items:center; justify-content:center; padding:16px}
+    .card{
+      width:100%; max-width:900px; height:min(78svh,720px);
+      background:rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.25); border-radius:18px;
+      overflow:hidden; box-shadow:var(--shadow); display:flex; flex-direction:column;
+    }
+    #loginView{height:340px; max-width:520px}
+    .section{padding:16px}
+    .row{display:flex; gap:10px}
+    input[type="text"]{
+      flex:1; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.35);
+      background:var(--glass); color:var(--text); outline:none;
+    }
+    button{
+      border:none; padding:12px 16px; border-radius:12px; cursor:pointer; font-weight:700; color:var(--text);
+      background:rgba(0,0,0,.35); transition:transform .05s ease; box-shadow:var(--shadow);
+    }
+    button:active{transform:translateY(1px)}
+    #chatView{display:none; height:100%}
+    #topbar{display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,.25)}
+    #status{font-size:12px; opacity:.9}
+    #messages{
+      flex:1; overflow:auto; padding:12px; display:flex; flex-direction:column; gap:8px; background:rgba(0,0,0,.18)
+    }
+    .msg{
+      align-self:flex-start; max-width:78%; padding:10px 12px; border-radius:14px;
+      background:var(--glass); border:1px solid rgba(255,255,255,.28)
+    }
+    .me{align-self:flex-end; background:rgba(255,255,255,.28)}
+    .meta{font-size:11px; opacity:.9; margin-bottom:4px}
+    .sys{align-self:center; background:transparent; border:none; font-size:12px; opacity:.9}
+    #composer{display:flex; gap:10px; padding:12px; background:rgba(0,0,0,.25)}
+    #messageInput{min-width:0}
+    .muted{opacity:.8}
+    .counter{font-weight:700}
+  </style>
+</head>
+<body>
+  <header>
+    🌹 Destiny Date — Community Chat 🌹
+    <small id="headerNote">Real-time chat. No sign-up.</small>
+  </header>
+
+  <!-- LOGIN -->
+  <div class="container" id="loginContainer">
+    <div class="card" id="loginView">
+      <div class="section" style="text-align:center">
+        <h2 style="margin:6px 0 10px 0">Welcome 💘</h2>
+        <p class="muted">Pick a username to start chatting</p>
+      </div>
+      <div class="section">
+        <div class="row">
+          <input id="usernameInput" type="text" placeholder="e.g., Mark_254" maxlength="20" />
+          <button id="joinBtn">Join Chat</button>
+        </div>
+        <p class="muted" style="margin-top:10px;font-size:12px">
+          Tip: Your name is saved on this device for next time.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAT -->
+  <div class="container" id="chatContainer" style="display:none">
+    <div class="card" id="chatView">
+      <div class="section" id="topbar">
+        <div>
+          <strong>Room:</strong> #destiny-date-chat
+          <span class="muted"> • <span id="online" class="counter">0</span> online</span>
+        </div>
+        <div id="status" class="muted">Connecting…</div>
+      </div>
+
+      <div id="messages" aria-live="polite"></div>
+
+      <div id="composer">
+        <input id="messageInput" type="text" placeholder="Type a message and press Enter…" maxlength="500"/>
+        <button id="sendBtn">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ====== CONFIG ======
+    const ABLY_API_KEY = "qNo9Pg.MHi_2Q:r6M6mQp5vRywItTo_YW9LdCTLFkB6LqbaTqf0lIg9jQ"; // provided by you
+    const CHANNEL_NAME = "destiny-date-chat";
+
+    // ====== INIT ======
+    const rt = new Ably.Realtime({ key: ABLY_API_KEY });
+    const channel = rt.channels.get(CHANNEL_NAME);
+
+    // ====== DOM ======
+    const loginContainer = document.getElementById("loginContainer");
+    const chatContainer  = document.getElementById("chatContainer");
+    const usernameInput  = document.getElementById("usernameInput");
+    const joinBtn        = document.getElementById("joinBtn");
+    const statusEl       = document.getElementById("status");
+    const messagesEl     = document.getElementById("messages");
+    const messageInput   = document.getElementById("messageInput");
+    const sendBtn        = document.getElementById("sendBtn");
+    const onlineEl       = document.getElementById("online");
+
+    // Restore saved username
+    try {
+      const saved = localStorage.getItem("dd_username");
+      if (saved) usernameInput.value = saved;
+    } catch {}
+
+    // ====== HELPERS ======
+    const nowTime = () => new Date().toLocaleTimeString();
+
+    function addSystem(text){
+      const el = document.createElement("div");
+      el.className = "msg sys";
+      el.textContent = text;
+      messagesEl.appendChild(el);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function addMessage({user,text,time}, isMe=false){
+      const wrap = document.createElement("div");
+      wrap.className = "msg" + (isMe ? " me" : "");
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.textContent = `${user} • ${time}`;
+      const body = document.createElement("div");
+      body.textContent = text;
+      wrap.appendChild(meta); wrap.appendChild(body);
+      messagesEl.appendChild(wrap);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function sanitize(s){
+      // super light guard to avoid huge spam/blank
+      return String(s || "").slice(0, 500).trim();
+    }
+
+    // ====== CONNECTION STATUS ======
+    rt.connection.on("connecting", () => statusEl.textContent = "Connecting…");
+    rt.connection.on("connected",  () => statusEl.textContent = "Connected");
+    rt.connection.on("disconnected",() => statusEl.textContent = "Disconnected");
+    rt.connection.on("suspended",   () => statusEl.textContent = "Suspended (network?)");
+    rt.connection.on("failed",      () => statusEl.textContent = "Failed");
+
+    // ====== PRESENCE (online count) ======
+    async function refreshOnline(){
+      try{
+        const members = await channel.presence.get();
+        onlineEl.textContent = members.length;
+      }catch(e){
+        console.warn(e);
+      }
+    }
+    channel.presence.subscribe(["enter","leave","update"], refreshOnline);
+
+    // ====== JOIN FLOW ======
+    async function join(){
+      const name = sanitize(usernameInput.value);
+      if(!name){ usernameInput.focus(); return; }
+      localStorage.setItem("dd_username", name);
+
+      // Switch views
+      loginContainer.style.display = "none";
+      chatContainer.style.display  = "flex";
+
+      // Enter presence & announce
+      try {
+        await channel.attach();
+        await channel.presence.enter({ username: name });
+        refreshOnline();
+        channel.publish("chat", { user:"System", text:`${name} joined the chat`, time: nowTime() });
+      } catch (e){
+        addSystem("Could not join the room. Try reloading.");
+        console.error(e);
+      }
+      messageInput.focus();
+    }
+
+    // ====== SEND ======
+    function send(){
+      const name = localStorage.getItem("dd_username") || "Anonymous";
+      const text = sanitize(messageInput.value);
+      if(!text) return;
+      const payload = { user:name, text, time: nowTime() };
+      channel.publish("chat", payload);
+      addMessage(payload, true); // optimistic render
+      messageInput.value = "";
+    }
+
+    // ====== RECEIVE ======
+    channel.subscribe("chat", (msg) => {
+      const data = msg.data || {};
+      const me = (data.user === (localStorage.getItem("dd_username") || ""));
+      if(data.user === "System"){
+        addSystem(data.text);
+      }else if(!me){
+        addMessage(data, false);
+      }
+    });
+
+    // ====== UI EVENTS ======
+    joinBtn.addEventListener("click", join);
+    usernameInput.addEventListener("keydown", (e)=>{ if(e.key==="Enter") join(); });
+
+    sendBtn.addEventListener("click", send);
+    messageInput.addEventListener("keydown", (e)=>{ if(e.key==="Enter"){ e.preventDefault(); send(); } });
+
+    // Leave notice when closing
+    window.addEventListener("beforeunload", () => {
+      const name = localStorage.getItem("dd_username");
+      try { channel.publish("chat", { user:"System", text:`${name||"Someone"} left the chat`, time: nowTime() }); } catch {}
+      try { channel.presence.leave(); } catch {}
+    });
+  </script>
+</body>
+</html>
