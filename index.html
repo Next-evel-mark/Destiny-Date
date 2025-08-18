@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Destiny Date - Community Chat</title>
+  <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
+  <style>
+    :root {
+      --primary: #6a11cb;
+      --secondary: #2575fc;
+      --text: #ffffff;
+      --bg-light: rgba(255,255,255,0.1);
+      --bg-dark: rgba(0,0,0,0.2);
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(to right, var(--primary), var(--secondary));
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      color: var(--text);
+    }
+    header {
+      text-align: center;
+      padding: 20px;
+      font-size: 28px;
+      font-weight: bold;
+      background: var(--bg-dark);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    #auth-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex: 1;
+      padding: 20px;
+    }
+    .auth-box {
+      background: var(--bg-light);
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      backdrop-filter: blur(5px);
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+    }
+    .auth-box h2 {
+      margin-top: 0;
+      margin-bottom: 20px;
+    }
+    .auth-box input {
+      padding: 12px 15px;
+      border: none;
+      border-radius: 8px;
+      width: 80%;
+      font-size: 16px;
+      background: rgba(255,255,255,0.9);
+      margin-bottom: 15px;
+      color: #333;
+    }
+    .auth-box button {
+      padding: 12px 25px;
+      border: none;
+      border-radius: 8px;
+      background: #4CAF50;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.3s;
+      margin: 5px;
+    }
+    .auth-box button:hover {
+      background: #45a049;
+      transform: translateY(-2px);
+    }
+    .auth-tabs {
+      display: flex;
+      margin-bottom: 20px;
+    }
+    .auth-tab {
+      flex: 1;
+      padding: 10px;
+      cursor: pointer;
+      background: var(--bg-dark);
+    }
+    .auth-tab.active {
+      background: var(--primary);
+      font-weight: bold;
+    }
+    .auth-tab:first-child {
+      border-radius: 8px 0 0 8px;
+    }
+    .auth-tab:last-child {
+      border-radius: 0 8px 8px 0;
+    }
+    #chat-container {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    #messages {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      background: var(--bg-dark);
+      border-radius: 10px;
+      margin-bottom: 15px;
+    }
+    .message {
+      margin: 10px 0;
+      padding: 12px 15px;
+      background: var(--bg-light);
+      border-radius: 8px;
+      display: flex;
+      align-items: flex-start;
+    }
+    .avatar {
+      font-size: 24px;
+      margin-right: 10px;
+      flex-shrink: 0;
+    }
+    .message-content {
+      flex: 1;
+    }
+    .message-header {
+      display: flex;
+      align-items: baseline;
+      margin-bottom: 5px;
+    }
+    .username {
+      font-weight: bold;
+      margin-right: 8px;
+    }
+    .time {
+      font-size: 12px;
+      opacity: 0.7;
+    }
+    .message-text {
+      word-wrap: break-word;
+    }
+    .system-message {
+      font-style: italic;
+      text-align: center;
+      padding: 8px;
+      background: rgba(255,152,0,0.2);
+    }
+    #send-area {
+      display: flex;
+      padding: 10px;
+      background: var(--bg-dark);
+      border-radius: 10px;
+    }
+    #message-input {
+      flex: 1;
+      padding: 12px 15px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      background: rgba(255,255,255,0.9);
+      color: #333;
+    }
+    #send-button {
+      margin-left: 10px;
+      padding: 12px 25px;
+      border: none;
+      border-radius: 8px;
+      background: #4CAF50;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    #user-count {
+      text-align: center;
+      margin-top: 10px;
+      font-size: 14px;
+      opacity: 0.8;
+    }
+    #user-profile {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      background: var(--bg-light);
+      padding: 8px 12px;
+      border-radius: 20px;
+      cursor: pointer;
+    }
+    #user-profile .avatar {
+      font-size: 20px;
+      margin-right: 8px;
+    }
+    #logout-button {
+      background: #f44336;
+      margin-left: 10px;
+    }
+    @media (max-width: 600px) {
+      .auth-box {
+        width: 90%;
+      }
+      .auth-box input {
+        width: 85%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>💑 Destiny Date - Community Chat 💑</header>
+
+  <div id="auth-container">
+    <div class="auth-box">
+      <div class="auth-tabs">
+        <div class="auth-tab active" onclick="showTab('login')">Login</div>
+        <div class="auth-tab" onclick="showTab('register')">Register</div>
+      </div>
+      <div id="login-tab">
+        <h2>Welcome Back!</h2>
+        <input type="text" id="login-username" placeholder="Username" autofocus>
+        <input type="password" id="login-password" placeholder="Password">
+        <button onclick="login()">Login</button>
+      </div>
+      <div id="register-tab" style="display: none;">
+        <h2>Create Account</h2>
+        <input type="text" id="register-username" placeholder="Choose username">
+        <input type="password" id="register-password" placeholder="Create password">
+        <button onclick="register()">Register</button>
+      </div>
+      <p id="user-count">0 people online</p>
+    </div>
+  </div>
+
+  <div id="chat-container">
+    <div id="user-profile" onclick="logout()">
+      <div class="avatar" id="profile-emoji">👤</div>
+      <span id="profile-username">User</span>
+      <button id="logout-button">Logout</button>
+    </div>
+    <div id="messages"></div>
+    <div id="send-area">
+      <input type="text" id="message-input" placeholder="Type your message..." autocomplete="off">
+      <button id="send-button" onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+
+  <script>
+    // Using Ably's demo key for this example (rate limited)
+    const ably = new Ably.Realtime("dMnXJQ.0R5G5Q:9X0jQJWiNd9L0QYH");
+    const channel = ably.channels.get("destiny-date-chat");
+    const presenceChannel = ably.channels.get("destiny-date-presence");
+
+    // User data
+    let currentUser = {
+      username: "",
+      emoji: "👤",
+      color: getRandomColor()
+    };
+    let userCount = 0;
+
+    // Available emojis for user profiles
+    const profileEmojis = ["😊", "😍", "🤩", "😎", "🧐", "🤠", "👩‍💻", "👨‍🎤", "👩‍🎨", "🦸", "🧙", "🧝", "🧛", "👽", "🤖", "🐶", "🐱", "🦊", "🐼", "🦁"];
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      // Check if user is already logged in
+      const savedUser = localStorage.getItem('destinyUser');
+      if (savedUser) {
+        try {
+          const user = JSON.parse(savedUser);
+          currentUser = {
+            username: user.username,
+            emoji: user.emoji || getRandomEmoji(),
+            color: user.color || getRandomColor()
+          };
+          enterChat();
+        } catch (e) {
+          localStorage.removeItem('destinyUser');
+        }
+      }
+
+      // Set up enter key handlers
+      document.getElementById("login-username").addEventListener("keypress", (e) => {
+        if (e.key === "Enter") login();
+      });
+      document.getElementById("login-password").addEventListener("keypress", (e) => {
+        if (e.key === "Enter") login();
+      });
+      document.getElementById("register-username").addEventListener("keypress", (e) => {
+        if (e.key === "Enter") register();
+      });
+      document.getElementById("register-password").addEventListener("keypress", (e) => {
+        if (e.key === "Enter") register();
+      });
+      document.getElementById("message-input").addEventListener("keypress", (e) => {
+        if (e.key === "Enter") sendMessage();
+      });
+    });
+
+    function showTab(tabName) {
+      document.getElementById("login-tab").style.display = tabName === 'login' ? 'block' : 'none';
+      document.getElementById("register-tab").style.display = tabName === 'register' ? 'block' : 'none';
+      
+      const tabs = document.querySelectorAll('.auth-tab');
+      tabs.forEach(tab => tab.classList.remove('active'));
+      
+      if (tabName === 'login') {
+        tabs[0].classList.add('active');
+        document.getElementById("login-username").focus();
+      } else {
+        tabs[1].classList.add('active');
+        document.getElementById("register-username").focus();
+      }
+    }
+
+    function getRandomEmoji() {
+      return profileEmojis[Math.floor(Math.random() * profileEmojis.length)];
+    }
+
+    function getRandomColor() {
+      const colors = ['#4CAF50', '#2196F3', '#9C27B0', '#FF9800', '#E91E63', '#00BCD4'];
+      return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    function updateUserCount(count) {
+      userCount = count;
+      document.getElementById('user-count').textContent = 
+        count === 1 ? "1 person online" : `${count} people online`;
+    }
+
+    function register() {
+      const username = document.getElementById("register-username").value.trim();
+      const password = document.getElementById("register-password").value.trim();
+
+      if (!username || !password) {
+        alert("Please enter both username and password");
+        return;
+      }
+
+      if (username.length < 3 || username.length > 20) {
+        alert("Username must be 3-20 characters");
+        return;
+      }
+
+      if (password.length < 6) {
+        alert("Password must be at least 6 characters");
+        return;
+      }
+
+      // Check if user already exists
+      const users = JSON.parse(localStorage.getItem('destinyUsers') || '{}');
+      if (users[username]) {
+        alert("Username already exists");
+        return;
+      }
+
+      // Create new user
+      users[username] = {
+        password: password, // In a real app, you would hash this
+        emoji: getRandomEmoji(),
+        color: getRandomColor()
+      };
+
+      localStorage.setItem('destinyUsers', JSON.stringify(users));
+      alert("Registration successful! Please login.");
+      showTab('login');
+      document.getElementById("login-username").value = username;
+      document.getElementById("login-password").focus();
+    }
+
+    function login() {
+      const username = document.getElementById("login-username").value.trim();
+      const password = document.getElementById("login-password").value.trim();
+
+      if (!username || !password) {
+        alert("Please enter both username and password");
+        return;
+      }
+
+      const users = JSON.parse(localStorage.getItem('destinyUsers') || '{}');
+      const user = users[username];
+
+      if (!user || user.password !== password) {
+        alert("Invalid username or password");
+        return;
+      }
+
+      // Set current user
+      currentUser = {
+        username: username,
+        emoji: user.emoji,
+        color: user.color
+      };
+
+      // Save to localStorage for auto-login
+      localStorage.setItem('destinyUser', JSON.stringify(currentUser));
+
+      enterChat();
+    }
+
+    function enterChat() {
+      document.getElementById("auth-container").style.display = "none";
+      document.getElementById("chat-container").style.display = "flex";
+      
+      // Update profile display
+      document.getElementById("profile-username").textContent = currentUser.username;
+      document.getElementById("profile-emoji").textContent = currentUser.emoji;
+      
+      // Set up presence
+      presenceChannel.presence.enter({
+        username: currentUser.username,
+        emoji: currentUser.emoji,
+        color: currentUser.color
+      }, (err) => {
+        if (err) console.error("Presence enter error:", err);
+      });
+
+      // Announce join
+      const joinMessage = {
+        type: "system",
+        text: `${currentUser.emoji} ${currentUser.username} joined the chat`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      channel.publish("chat", joinMessage);
+      
+      // Focus on message input
+      document.getElementById("message-input").focus();
+    }
+
+    function sendMessage() {
+      const messageInput = document.getElementById("message-input");
+      const message = messageInput.value.trim();
+      
+      if (message === "") return;
+      
+      const chatMessage = {
+        type: "message",
+        username: currentUser.username,
+        emoji: currentUser.emoji,
+        text: message,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        color: currentUser.color
+      };
+      
+      channel.publish("chat", chatMessage);
+      messageInput.value = "";
+    }
+
+    function logout() {
+      if (confirm("Are you sure you want to logout?")) {
+        // Announce leave
+        const leaveMessage = {
+          type: "system",
+          text: `${currentUser.emoji} ${currentUser.username} left the chat`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        channel.publish("chat", leaveMessage);
+        
+        presenceChannel.presence.leave();
+        
+        // Clear user data
+        localStorage.removeItem('destinyUser');
+        currentUser = { username: "", emoji: "👤", color: getRandomColor() };
+        
+        // Show auth screen
+        document.getElementById("auth-container").style.display = "flex";
+        document.getElementById("chat-container").style.display = "none";
+        document.getElementById("login-username").focus();
+      }
+    }
+
+    // Listen for chat messages
+    channel.subscribe("chat", (msg) => {
+      const data = msg.data;
+      const messagesDiv = document.getElementById("messages");
+      
+      if (data.type === "system") {
+        // System message (join/leave)
+        const systemDiv = document.createElement("div");
+        systemDiv.className = "system-message";
+        systemDiv.textContent = data.text;
+        messagesDiv.appendChild(systemDiv);
+      } else {
+        // Regular message
+        const messageDiv = document.createElement("div");
+        messageDiv.className = "message";
+        
+        messageDiv.innerHTML = `
+          <div class="avatar">${data.emoji}</div>
+          <div class="message-content">
+            <div class="message-header">
+              <span class="username" style="color: ${data.color}">${data.username}</span>
+              <span class="time">${data.time}</span>
+            </div>
+            <div class="message-text">${data.text}</div>
+          </div>
+        `;
+        
+        messagesDiv.appendChild(messageDiv);
+      }
+      
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
+
+    // Handle presence updates
+    presenceChannel.presence.subscribe('enter', () => {
+      presenceChannel.presence.get((err, members) => {
+        if (err) return;
+        updateUserCount(members.length);
+      });
+    });
+
+    presenceChannel.presence.subscribe('leave', () => {
+      presenceChannel.presence.get((err, members) => {
+        if (err) return;
+        updateUserCount(members.length);
+      });
+    });
+
+    // Show current user count
+    presenceChannel.presence.get((err, members) => {
+      if (err) return;
+      updateUserCount(members.length);
+    });
+
+    // Handle page refresh/close
+    window.addEventListener('beforeunload', () => {
+      if (currentUser.username) {
+        const leaveMessage = {
+          type: "system",
+          text: `${currentUser.emoji} ${currentUser.username} left the chat`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        channel.publish("chat", leaveMessage);
+        presenceChannel.presence.leave();
+      }
+    });
+  </script>
+</body>
+</html>
