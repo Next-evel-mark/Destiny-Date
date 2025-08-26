@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Destiny Date - Community Chat (P2P)</title>
+  <!-- Trystero (WebRTC P2P over public trackers) -->
+  <script src="https://unpkg.com/trystero@0.16.0/web.bundle.min.js"></script>
+  <style>
+    :root {
+      --primary:#6a11cb; --secondary:#2575fc; --text:#fff;
+      --bg-light:rgba(255,255,255,0.1); --bg-dark:rgba(0,0,0,0.25);
+      --success:#4CAF50; --danger:#f44336;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; height:100vh; display:flex; flex-direction:column;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
+      color:var(--text); background:linear-gradient(90deg,var(--primary),var(--secondary));
+    }
+    header{
+      padding:16px; text-align:center; font-size:22px; font-weight:800;
+      background:var(--bg-dark); backdrop-filter:saturate(120%) blur(6px);
+      box-shadow:0 2px 10px rgba(0,0,0,.2)
+    }
+    #auth,#chat{flex:1; display:flex; align-items:center; justify-content:center; padding:20px}
+    .card{
+      width:100%; max-width:420px; background:var(--bg-light); border-radius:16px;
+      padding:24px; box-shadow:0 12px 30px rgba(0,0,0,.25); backdrop-filter:blur(6px)
+    }
+    .tabs{display:flex; gap:8px; margin-bottom:16px}
+    .tab{flex:1; text-align:center; padding:10px; border-radius:10px; background:var(--bg-dark); cursor:pointer}
+    .tab.active{background:#00000040; font-weight:700; outline:2px solid #ffffff30}
+    h2{margin:6px 0 16px}
+    input{
+      width:100%; padding:12px 14px; border:none; border-radius:10px; margin:8px 0 12px;
+      background:rgba(255,255,255,.95); color:#222; font-size:16px
+    }
+    .btn{
+      padding:12px 18px; border:none; border-radius:10px; color:#fff; font-weight:700; cursor:pointer;
+      background:var(--success); margin-right:8px
+    }
+    .btn.secondary{background:#2d7ef7}
+    .btn.danger{background:var(--danger)}
+    .hint{opacity:.85; font-size:13px; margin-top:6px}
+    #online{margin-top:10px; text-align:center; opacity:.85; font-size:14px}
+
+    /* Chat */
+    #chat{display:none}
+    .wrap{width:100%; max-width:900px; display:flex; flex-direction:column; gap:12px}
+    #bar{
+      display:flex; align-items:center; gap:10px; background:var(--bg-dark); padding:10px 12px;
+      border-radius:12px; position:relative
+    }
+    #me{display:flex; align-items:center; gap:10px; padding:6px 10px; background:var(--bg-light); border-radius:20px}
+    #me .avatar{font-size:20px}
+    #logout{margin-left:auto}
+    #roomId{font-size:12px; opacity:.8}
+    #messages{
+      flex:1; min-height:50vh; overflow:auto; padding:14px; border-radius:12px; background:var(--bg-dark)
+    }
+    .msg{display:flex; gap:10px; padding:10px 12px; background:var(--bg-light); border-radius:10px; margin:8px 0}
+    .sys{font-style:italic; text-align:center; background:rgba(255,152,0,.25)}
+    .uname{font-weight:800; margin-right:6px}
+    .time{font-size:12px; opacity:.75}
+    #send{
+      display:flex; gap:10px; background:var(--bg-dark); padding:10px; border-radius:12px
+    }
+    #text{flex:1; padding:12px 14px; border:none; border-radius:10px; background:rgba(255,255,255,.95); color:#222}
+    #send .btn{min-width:96px}
+    @media (max-width:640px){ .wrap{max-width:100%} }
+  </style>
+</head>
+<body>
+  <header>💑 Destiny Date — Community Chat (P2P, no backend) 💑</header>
+
+  <!-- Auth -->
+  <section id="auth">
+    <div class="card">
+      <div class="tabs">
+        <div class="tab active" data-tab="login">Login</div>
+        <div class="tab" data-tab="register">Register</div>
+      </div>
+
+      <div id="login" class="pane">
+        <h2>Welcome Back!</h2>
+        <input id="login-username" placeholder="Username" autofocus />
+        <input id="login-password" placeholder="Password" type="password" />
+        <button class="btn" id="login-btn">Login</button>
+      </div>
+
+      <div id="register" class="pane" style="display:none">
+        <h2>Create Account</h2>
+        <input id="reg-username" placeholder="Choose username" />
+        <input id="reg-password" placeholder="Create password" type="password" />
+        <button class="btn secondary" id="register-btn">Register</button>
+      </div>
+
+      <div class="hint">Accounts are stored locally on your device (no server). Use a nickname, not a real password.</div>
+      <p id="online">0 people online</p>
+    </div>
+  </section>
+
+  <!-- Chat -->
+  <section id="chat">
+    <div class="wrap">
+      <div id="bar">
+        <div id="me">
+          <span class="avatar" id="me-emoji">👤</span>
+          <strong id="me-name">User</strong>
+        </div>
+        <span id="roomId"></span>
+        <button class="btn danger" id="logout">Logout</button>
+      </div>
+
+      <div id="messages"></div>
+
+      <div id="send">
+        <input id="text" placeholder="Type your message..." />
+        <button class="btn" id="sendBtn">Send</button>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // --- Simple local "auth" (device-only) ---
+    const profileEmojis = ["😊","😍","🤩","😎","🧐","🤠","👩‍💻","👨‍🎤","👩‍🎨","🦸","🧙","🧝","🧛","👽","🤖","🐶","🐱","🦊","🐼","🦁"];
+    const colors = ['#4CAF50','#2196F3','#9C27B0','#FF9800','#E91E63','#00BCD4'];
+
+    const $ = s => document.querySelector(s);
+    const $$ = s => document.querySelectorAll(s);
+
+    const panes = { login: $('#login'), register: $('#register') };
+    $$('.tab').forEach(tab => tab.onclick = () => {
+      $$('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const t = tab.dataset.tab;
+      panes.login.style.display = t === 'login' ? 'block' : 'none';
+      panes.register.style.display = t === 'register' ? 'block' : 'none';
+      (t==='login' ? $('#login-username') : $('#reg-username')).focus();
+    });
+
+    function rand(arr){ return arr[Math.floor(Math.random()*arr.length)] }
+
+    function loadUsers(){ try { return JSON.parse(localStorage.getItem('destinyUsers')||'{}') } catch { return {} } }
+    function saveUsers(u){ localStorage.setItem('destinyUsers', JSON.stringify(u)) }
+
+    function register(){
+      const u = $('#reg-username').value.trim(), p = $('#reg-password').value.trim();
+      if(!u || !p) return alert('Enter username and password');
+      if(u.length<3 || u.length>20) return alert('Username must be 3–20 chars');
+      if(p.length<4) return alert('Password must be at least 4 chars');
+      const users = loadUsers();
+      if(users[u]) return alert('Username already exists');
+      users[u] = { password:p, emoji:rand(profileEmojis), color:rand(colors) };
+      saveUsers(users);
+      alert('Registration successful! Please login.');
+      $('#login-username').value = u; $('#login-password').focus();
+      // switch tab
+      $$('.tab')[0].click();
+    }
+
+    function login(){
+      const u = $('#login-username').value.trim(), p = $('#login-password').value.trim();
+      const users = loadUsers(), rec = users[u];
+      if(!rec || rec.password !== p) return alert('Invalid username or password');
+      const me = { username:u, emoji: rec.emoji, color: rec.color };
+      localStorage.setItem('destinyUser', JSON.stringify(me));
+      enterChat(me);
+    }
+
+    $('#register-btn').onclick = register;
+    $('#login-btn').onclick = login;
+    $('#login-username').addEventListener('keypress', e => e.key==='Enter' && login());
+    $('#login-password').addEventListener('keypress', e => e.key==='Enter' && login());
+    $('#reg-username').addEventListener('keypress', e => e.key==='Enter' && register());
+    $('#reg-password').addEventListener('keypress', e => e.key==='Enter' && register());
+
+    // Autologin if stored
+    const saved = localStorage.getItem('destinyUser');
+    if(saved){ try{ enterChat(JSON.parse(saved)) }catch{ localStorage.removeItem('destinyUser') } }
+
+    // --- P2P Chat using Trystero (no custom backend) ---
+    let room, sendMsg, peersCount = 0, me = null;
+
+    const APP_ID = 'destiny-date-p2p';        // identifies your app across public trackers
+    const ROOM_NAME = 'global-lobby';         // everyone joins the same lobby (change if you want separate rooms)
+
+    function enterChat(user){
+      me = user || me;
+      $('#auth').style.display = 'none';
+      $('#chat').style.display = 'flex';
+      $('#me-name').textContent = me.username;
+      $('#me-emoji').textContent = me.emoji;
+      $('#roomId').textContent = `Room: ${ROOM_NAME}`;
+
+      // Join P2P room
+      const { joinRoom } = window.Trystero;
+      room = joinRoom({ appId: APP_ID }, ROOM_NAME);
+
+      // Create an action for chat messages
+      [sendMsg, getMsg] = room.makeAction('chat');
+
+      // Listen for incoming chat
+      getMsg((data, peerId) => {
+        if(!data || !data.type) return;
+        if(data.type === 'chat'){
+          addMessage(data, false);
+        } else if(data.type === 'system'){
+          addSystem(data.text);
+        }
+      });
+
+      // Presence
+      room.onPeerJoin(peerId => {
+        peersCount = room.getPeers().length;
+        updateOnline();
+        addSystem('🟢 A user joined the room');
+      });
+      room.onPeerLeave(peerId => {
+        peersCount = room.getPeers().length;
+        updateOnline();
+        addSystem('🔴 A user left the room');
+      });
+
+      // Initial presence count (after a small delay to allow discovery)
+      setTimeout(()=>{ peersCount = room.getPeers().length; updateOnline(); }, 800);
+
+      // Announce join
+      broadcastSystem(`${me.emoji} ${me.username} joined the chat`);
+      $('#text').focus();
+    }
+
+    function updateOnline(){
+      const total = peersCount + 1; // peers + me
+      $('#online').textContent = total===1 ? '1 person online' : `${total} people online`;
+    }
+
+    function addSystem(text){
+      const div = document.createElement('div');
+      div.className = 'msg sys';
+      div.textContent = text;
+      $('#messages').appendChild(div);
+      $('#messages').scrollTop = $('#messages').scrollHeight;
+    }
+
+    function addMessage(data, mine){
+      const wrap = document.createElement('div');
+      wrap.className = 'msg';
+      wrap.innerHTML = `
+        <div class="avatar" style="font-size:22px">${data.emoji}</div>
+        <div style="flex:1">
+          <div><span class="uname" style="color:${data.color}">${data.username}</span>
+          <span class="time">${data.time}</span></div>
+          <div>${escapeHtml(data.text)}</div>
+        </div>
+      `;
+      if(mine) wrap.style.outline = '2px solid #ffffff30';
+      $('#messages').appendChild(wrap);
+      $('#messages').scrollTop = $('#messages').scrollHeight;
+    }
+
+    function now(){ return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) }
+
+    function send(){
+      const input = $('#text');
+      const text = input.value.trim();
+      if(!text || !sendMsg) return;
+      const payload = {
+        type:'chat', username: me.username, emoji: me.emoji, color: me.color,
+        text, time: now()
+      };
+      // Show mine immediately
+      addMessage(payload, true);
+      // Broadcast to peers
+      sendMsg(payload);
+      input.value = '';
+    }
+
+    function broadcastSystem(text){
+      if(!sendMsg) return;
+      sendMsg({ type:'system', text });
+      addSystem(text);
+    }
+
+    $('#sendBtn').onclick = send;
+    $('#text').addEventListener('keypress', e => { if(e.key==='Enter') send(); });
+
+    // Logout
+    $('#logout').onclick = () => {
+      try{
+        broadcastSystem(`${me.emoji} ${me.username} left the chat`);
+        room && room.leave && room.leave();
+      }catch{}
+      localStorage.removeItem('destinyUser');
+      me = null; room = null; sendMsg = null; peersCount = 0;
+      $('#messages').innerHTML = '';
+      $('#chat').style.display = 'none';
+      $('#auth').style.display = 'flex';
+      updateOnline();
+      $('#login-username').focus();
+    };
+
+    // Show initial online (0)
+    updateOnline();
+
+    // --- Utilities ---
+    function escapeHtml(str){
+      return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+  </script>
+</body>
+</html>
