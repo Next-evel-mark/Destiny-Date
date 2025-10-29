@@ -1,117 +1,519 @@
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mini Bot Hosting Platform</title>
-  <style>
-    body { font-family: Arial, sans-serif; background: #f4f6fa; margin: 0; padding: 0; }
-    .container { max-width: 700px; margin: 50px auto; background: #fff; padding: 20px;
-      border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-    input, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
-    button { background: #4CAF50; color: white; border: none; cursor: pointer; border-radius: 5px; }
-    button:hover { background: #45a049; }
-    .hidden { display: none; }
-    .card { border: 1px solid #ddd; padding: 10px; margin-top: 10px; border-radius: 5px; }
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Community Chat — next_level_mark</title>
+<style>
+  :root{--accent:#ff5c8a;--bg:#0f1724;--card:#0b1220;color:#e6eef8}
+  *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial}
+  body{margin:0;background:linear-gradient(180deg,#071029 0%, #081827 100%);color:var(--card);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px}
+  .container{width:100%;max-width:920px}
+  header{background:rgba(255,255,255,0.02);padding:12px;border-radius:12px;display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+  .top-row{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+  .stats{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;opacity:.95}
+  .brand{font-weight:700;font-size:16px}
+  main{display:flex;gap:12px}
+  .chat{flex:1;background:rgba(255,255,255,0.02);border-radius:12px;padding:12px;min-height:400px;display:flex;flex-direction:column}
+  .messages{flex:1;overflow:auto;padding:6px;display:flex;flex-direction:column;gap:8px}
+  .msg{padding:8px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));box-shadow:0 1px 0 rgba(255,255,255,0.02);font-size:14px}
+  .meta{font-size:12px;opacity:.7;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .images{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+  img.preview{max-width:170px;border-radius:8px;object-fit:cover;max-height:150px}
+  .composer{display:flex;gap:8px;margin-top:12px;align-items:center}
+  input[type=text],textarea{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px;border-radius:8px;color:var(--card);outline:none;min-width:0}
+  textarea{flex:1;min-height:48px;resize:vertical}
+  .right-col{width:260px;display:flex;flex-direction:column;gap:12px}
+  .panel{background:rgba(255,255,255,0.02);padding:10px;border-radius:10px}
+  button{background:var(--accent);border:none;color:white;padding:8px 10px;border-radius:8px;cursor:pointer}
+  .muted{opacity:.75;font-size:13px}
+  footer{margin-top:12px;text-align:center;font-size:13px;color:var(--card)}
+  a.link{color:var(--accent);text-decoration:none;font-weight:600}
+  .admin-controls{display:flex;gap:8px;align-items:center}
+  .small{font-size:12px;padding:6px 8px;border-radius:8px}
+  .danger{background:#ff536b}
+  .tiny{font-size:11px;color:#a8b3c7}
+</style>
 </head>
 <body>
-  <div class="container">
-    <h1>💬 Bot Hosting Platform</h1>
-    <div id="auth-area">
-      <h3>Sign up or Login</h3>
-      <input type="text" id="email" placeholder="Enter your email">
-      <input type="password" id="password" placeholder="Enter password">
-      <button onclick="signup()">Sign Up</button>
-      <button onclick="login()">Login</button>
-      <p id="auth-msg"></p>
+<div class="container">
+  <header>
+    <div class="top-row">
+      <div class="brand">Community Chat — next_level_mark</div>
+      <div>
+        <button id="adminBtn" class="small">Admin</button>
+      </div>
     </div>
-
-    <div id="dashboard" class="hidden">
-      <h3>Welcome, <span id="user-email"></span></h3>
-      <p>Coins: <span id="coins">0</span></p>
-      <button onclick="claim()">Claim Daily 10 Coins</button>
-      <h4>Host New Bot (10 coins / 7 days)</h4>
-      <input type="text" id="repo" placeholder="Enter bot name or GitHub repo">
-      <button onclick="hostBot()">Host Bot</button>
-      <h4>Your Bots</h4>
-      <div id="bots"></div>
-      <button onclick="logout()">Logout</button>
-      <p id="msg"></p>
+    <div class="stats" id="statusBar">
+      <div id="battery">Battery: --%</div>
+      <div id="localIp">Local IP: --</div>
+      <div id="publicIp">Public IP: --</div>
+      <div id="provider">Provider: --</div>
+      <div id="netInfo">Net: --</div>
+      <div id="timeNow">Time: --</div>
+      <div id="dateNow">Date: --</div>
     </div>
-  </div>
+  </header>
 
-  <script>
-    let currentUser = null;
+  <main>
+    <section class="chat">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <label class="muted">You are:</label>
+        <input id="username" placeholder="Choose a username..." type="text" style="width:220px"/>
+        <button id="setName" class="small">Set</button>
+        <div id="youBadge" class="tiny" style="margin-left:6px;color:#9ed2ff"></div>
+      </div>
 
-    async function signup() {
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-      const res = await fetch('/signup', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({email, password})
-      });
-      document.getElementById('auth-msg').innerText = await res.text();
+      <div class="messages" id="messages"></div>
+
+      <div class="composer">
+        <textarea id="textMsg" placeholder="Write a message..."></textarea>
+        <input id="imgs" type="file" accept="image/*" multiple style="display:none"/>
+        <button id="imgBtn" class="small">Attach (max 2)</button>
+        <button id="sendBtn" class="small">Send</button>
+      </div>
+      <div class="tiny muted" style="margin-top:6px">Images are embedded as base64 (suitable for light use). Messages auto-expire after 24 hours.</div>
+    </section>
+
+    <aside class="right-col">
+      <div class="panel">
+        <div style="font-weight:700;margin-bottom:6px">Active Users</div>
+        <div id="userList" class="muted">—</div>
+      </div>
+
+      <div class="panel">
+        <div style="font-weight:700;margin-bottom:6px">Controls</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button id="clearLocal" class="small">Clear local cache</button>
+          <button id="purgeExpired" class="small">Purge expired messages now</button>
+        </div>
+      </div>
+
+      <div class="panel tiny muted">
+        <div>Made with ❣️ by <a class="link" href="tel:+254110550356">next_level_mark</a></div>
+      </div>
+    </aside>
+  </main>
+
+  <footer id="footer"></footer>
+</div>
+
+<!-- Firebase SDKs (CDN) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+/*
+  IMPORTANT:
+  Replace the firebaseConfig object below with your Firebase project's config.
+  To get it:
+    - Create a Firebase project (https://console.firebase.google.com/)
+    - Add a Web App, copy the config object
+    - Enable Realtime Database and set rules for testing:
+        {
+          "rules": {
+            ".read": true,
+            ".write": true
+          }
+        }
+    - Then paste the config here.
+*/
+
+const firebaseConfig = {
+  apiKey: "PASTE_API_KEY",
+  authDomain: "PASTE_PROJECT.firebaseapp.com",
+  databaseURL: "https://PASTE_PROJECT-default-rtdb.firebaseio.com",
+  projectId: "PASTE_PROJECT",
+  storageBucket: "PASTE_PROJECT.appspot.com",
+  messagingSenderId: "SENDER_ID",
+  appId: "APP_ID"
+};
+
+if(!firebaseConfig || !firebaseConfig.apiKey || firebaseConfig.apiKey.startsWith("PASTE")){
+  console.warn("Firebase config not set. Please paste your config into firebaseConfig to enable multi-user chat.");
+  // We'll still run a local-only mode using localStorage fallback.
+}
+
+const app = firebase.initializeApp(firebaseConfig);
+const db = firebase.database ? firebase.database() : null;
+const MSG_NODE = "community_chat_messages_v1";
+const USERS_NODE = "community_chat_users_v1";
+
+/* helpers */
+const $ = id => document.getElementById(id);
+const now = () => Date.now();
+const DAY_MS = 24*60*60*1000;
+
+/* user setup */
+let username = localStorage.getItem("chat_username") || "";
+$("username").value = username;
+$("youBadge").textContent = username ? `Signed as ${username}` : "";
+
+$("setName").onclick = () => {
+  const v = $("username").value.trim().slice(0,40);
+  if(!v) return alert("Enter a username");
+  username = v;
+  localStorage.setItem("chat_username", username);
+  $("youBadge").textContent = `Signed as ${username}`;
+  registerPresence();
+}
+
+/* image handling */
+let attachedFiles = [];
+$("imgBtn").onclick = () => $("imgs").click();
+$("imgs").onchange = e => {
+  attachedFiles = Array.from(e.target.files).slice(0,2);
+  alert(`Attached ${attachedFiles.length} image(s). Max 2.`);
+}
+
+/* admin */
+let isAdmin = false;
+$("adminBtn").onclick = async () => {
+  const p = prompt("Enter admin password:");
+  if(p === "1681"){ isAdmin = true; alert("Admin mode enabled"); showAdminControls(); }
+  else alert("Wrong password");
+};
+
+function showAdminControls(){
+  // add simple delete hint in UI (each message will have delete button if admin)
+  // UI rendered per message
+}
+
+/* status bar info: battery, time, IP, network */
+async function refreshStatus(){
+  // time & date
+  const d = new Date();
+  $("timeNow").textContent = `Time: ${d.toLocaleTimeString()}`;
+  $("dateNow").textContent = `Date: ${d.toLocaleDateString()}`;
+
+  // battery
+  if(navigator.getBattery){
+    try{
+      const bat = await navigator.getBattery();
+      const pct = Math.round(bat.level * 100) + "%";
+      $("battery").textContent = "Battery: " + pct + (bat.charging ? " ⚡" : "");
+      bat.addEventListener("levelchange", ()=> $("battery").textContent = "Battery: " + Math.round(bat.level*100)+"%");
+    }catch(e){ $("battery").textContent = "Battery: unknown"; }
+  } else $("battery").textContent = "Battery: N/A";
+
+  // network info
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if(conn){
+    $("netInfo").textContent = `Net: ${conn.effectiveType || "?"} downlink ${conn.downlink || "?"}Mb/s rtt ${conn.rtt || "?"}ms`;
+  } else $("netInfo").textContent = "Net: N/A";
+
+  // try to get public IP & provider via ipapi.co
+  try{
+    const r = await fetch("https://ipapi.co/json/");
+    if(r.ok){
+      const j = await r.json();
+      $("publicIp").textContent = `Public IP: ${j.ip || "?"}`;
+      $("provider").textContent = `Provider: ${j.org || j.org || j.asn || "?"}`;
+    } else {
+      $("publicIp").textContent = "Public IP: unavailable";
+      $("provider").textContent = "Provider: unknown";
     }
+  }catch(e){
+    $("publicIp").textContent = "Public IP: blocked";
+    $("provider").textContent = "Provider: unknown";
+  }
 
-    async function login() {
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-      const res = await fetch('/login', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({email, password})
-      });
-      const data = await res.json();
-      if (data.success) {
-        currentUser = data.user;
-        showDashboard();
-      } else {
-        document.getElementById('auth-msg').innerText = data.message;
+  // try local IP via WebRTC (may be blocked)
+  getLocalIPs(ip => {
+    $("localIp").textContent = `Local IP: ${ip || "--"}`;
+  });
+}
+
+refreshStatus();
+setInterval(refreshStatus, 15_000);
+
+/* get local IP (best-effort) */
+function getLocalIPs(callback){
+  // This may not work in all browsers. Best-effort only.
+  const ips = new Set();
+  try {
+    const pc = new RTCPeerConnection({iceServers:[]});
+    pc.createDataChannel("");
+    pc.onicecandidate = e => {
+      if(!e.candidate) {
+        pc.close();
+        callback(Array.from(ips).join(", ") || null);
+        return;
+      }
+      const s = e.candidate.candidate;
+      const parts = s.split(" ");
+      for(let i=0;i<parts.length;i++){
+        if(parts[i].match(/(\d{1,3}\.){3}\d{1,3}/)){
+          ips.add(parts[i]);
+        }
+      }
+    };
+    pc.createOffer().then(o => pc.setLocalDescription(o)).catch(()=>callback(null));
+  } catch(e){ callback(null); }
+}
+
+/* messaging system
+   If Firebase is configured, use it. Otherwise fallback to localStorage (single-browser only).
+*/
+let useFirebase = db && firebaseConfig && firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith("PASTE");
+const msgsEl = $("messages");
+const usersEl = $("userList");
+
+async function sendMessage(text, filesBase64){
+  if(!username) return alert("Choose a username first");
+  const id = "m_" + Math.random().toString(36).slice(2,9);
+  const payload = {
+    id,
+    user: username,
+    text: text || "",
+    images: filesBase64 || [],
+    ts: now()
+  };
+  if(useFirebase){
+    await db.ref(`${MSG_NODE}/${id}`).set(payload);
+  } else {
+    // local-only
+    const bag = JSON.parse(localStorage.getItem(MSG_NODE) || "{}");
+    bag[id] = payload;
+    localStorage.setItem(MSG_NODE, JSON.stringify(bag));
+    renderMessages();
+  }
+}
+
+/* convert attached files to base64 (max 2) */
+function filesToBase64(files){
+  return Promise.all(files.slice(0,2).map(f => new Promise((res,rej)=>{
+    const r = new FileReader();
+    r.onload = ()=> res({name:f.name,data:r.result});
+    r.onerror = rej;
+    r.readAsDataURL(f);
+  })));
+}
+
+/* send button */
+$("sendBtn").onclick = async ()=>{
+  const txt = $("textMsg").value.trim();
+  if(!txt && attachedFiles.length===0) return alert("Write or attach an image");
+  const imgs = await filesToBase64(attachedFiles);
+  await sendMessage(txt, imgs);
+  $("textMsg").value = "";
+  attachedFiles = [];
+  $("imgs").value = "";
+}
+
+/* realtime listeners (Firebase) OR poll localStorage */
+if(useFirebase){
+  // listen for added/changed/removed
+  const ref = db.ref(MSG_NODE);
+  ref.on('value', snapshot => {
+    const val = snapshot.val() || {};
+    // remove expired entries automatically
+    const updates = {};
+    const nowTs = now();
+    for(const k in val){
+      if((nowTs - (val[k].ts||0)) > DAY_MS){
+        updates[k] = null; // delete
       }
     }
+    if(Object.keys(updates).length){
+      db.ref(MSG_NODE).update(updates);
+      return; // will trigger again after cleanup
+    }
+    renderMessagesFromObject(val);
+  });
+  // presence: mark this user's presence briefly
+  registerPresence = function(){
+    const uid = "u_" + (username || "guest");
+    const uref = db.ref(`${USERS_NODE}/${uid}`);
+    uref.set({name:username,ts:now()});
+    // set timeout to clear presence after 35s unless refreshed
+    setInterval(()=> uref.update({ts:now()}), 30_000);
+    // simple stale cleanup
+    db.ref(USERS_NODE).on('value', s => {
+      const v = s.val()||{};
+      const keys = Object.keys(v).filter(k => now()- (v[k].ts||0) > 60_000);
+      keys.forEach(k => db.ref(`${USERS_NODE}/${k}`).remove());
+      updateUserList(v);
+    });
+  }
+} else {
+  // localStorage fallback: poll every 2s
+  setInterval(renderMessages, 2000);
+  registerPresence = function(){
+    // local-only: show you as single user
+    updateUserList({you: {name: username || "you"}});
+  }
+}
 
-    async function claim() {
-      const res = await fetch('/claim', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({email: currentUser.email})
+/* render helpers */
+function renderMessagesFromObject(obj){
+  // obj: {id: payload}
+  const arr = Object.values(obj || {}).sort((a,b)=> (a.ts||0)-(b.ts||0));
+  renderMessagesList(arr);
+}
+
+function renderMessages(){
+  if(useFirebase) return; // firebase path handled elsewhere
+  const bag = JSON.parse(localStorage.getItem(MSG_NODE) || "{}");
+  const arr = Object.values(bag).sort((a,b)=> (a.ts||0)-(b.ts||0));
+  // cleanup expired
+  const nowTs = now();
+  let changed = false;
+  for(const m of arr){
+    if(nowTs - (m.ts||0) > DAY_MS){
+      delete bag[m.id];
+      changed = true;
+    }
+  }
+  if(changed) localStorage.setItem(MSG_NODE, JSON.stringify(bag));
+  renderMessagesList(Object.values(bag || {}).sort((a,b)=> (a.ts||0)-(b.ts||0)));
+}
+
+function renderMessagesList(list){
+  msgsEl.innerHTML = "";
+  const nowTs = now();
+  list.forEach(msg=>{
+    // skip expired (safety)
+    if(nowTs - (msg.ts||0) > DAY_MS){
+      // if using firebase, remove it
+      if(useFirebase) db.ref(`${MSG_NODE}/${msg.id}`).remove();
+      return;
+    }
+    const el = document.createElement("div");
+    el.className = "msg";
+    const t = new Date(msg.ts||0);
+    const timeStr = t.toLocaleString();
+    el.innerHTML = `
+      <div class="meta">
+        <div><strong>${escapeHtml(msg.user)}</strong></div>
+        <div class="tiny">${timeStr}</div>
+      </div>
+      <div>${escapeHtml(msg.text || "")}</div>
+    `;
+    if(msg.images && msg.images.length){
+      const imgsWrap = document.createElement("div");
+      imgsWrap.className = "images";
+      msg.images.slice(0,2).forEach(im=>{
+        const i = document.createElement("img");
+        i.className = "preview";
+        // im may be {name, data} if base64 object
+        i.src = im.data || im;
+        imgsWrap.appendChild(i);
       });
-      document.getElementById('msg').innerText = await res.text();
-      loadUser();
+      el.appendChild(imgsWrap);
+    }
+    // expiry countdown
+    const remaining = (msg.ts||0) + DAY_MS - nowTs;
+    if(remaining>0){
+      const rem = document.createElement("div");
+      rem.className = "tiny muted";
+      rem.style.marginTop="6px";
+      rem.textContent = `Expires in ${msToHuman(remaining)}`;
+      el.appendChild(rem);
+      // schedule removal from DOM when expires (for nicer UX)
+      setTimeout(()=> {
+        // if using firebase the DB cleaner will remove; simply re-render
+        if(useFirebase) return;
+        renderMessages();
+      }, remaining + 1500);
     }
 
-    async function hostBot() {
-      const repo = document.getElementById('repo').value;
-      const res = await fetch('/host', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({email: currentUser.email, repo})
-      });
-      document.getElementById('msg').innerText = await res.text();
-      loadUser();
+    // admin delete button
+    if(isAdmin){
+      const del = document.createElement("button");
+      del.textContent = "Delete";
+      del.className = "small danger";
+      del.style.marginLeft = "8px";
+      del.onclick = async ()=> {
+        if(useFirebase){
+          await db.ref(`${MSG_NODE}/${msg.id}`).remove();
+        } else {
+          const bag = JSON.parse(localStorage.getItem(MSG_NODE)||"{}");
+          delete bag[msg.id];
+          localStorage.setItem(MSG_NODE, JSON.stringify(bag));
+          renderMessages();
+        }
+      };
+      const meta = el.querySelector(".meta");
+      const ctr = document.createElement("div");
+      ctr.className = "admin-controls";
+      ctr.appendChild(del);
+      meta.appendChild(ctr);
     }
 
-    async function loadUser() {
-      const res = await fetch(`/user/${currentUser.email}`);
-      const data = await res.json();
-      document.getElementById('coins').innerText = data.coins;
-      document.getElementById('user-email').innerText = data.email;
-      const botsDiv = document.getElementById('bots');
-      botsDiv.innerHTML = '';
-      data.bots.forEach(bot => {
-        botsDiv.innerHTML += `<div class='card'>🤖 ${bot.repo} — ${bot.active ? 'Active' : 'Expired'} (ends: ${bot.endDate})</div>`;
-      });
-    }
+    msgsEl.appendChild(el);
+    // scroll to bottom
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+  });
+}
 
-    function showDashboard() {
-      document.getElementById('auth-area').classList.add('hidden');
-      document.getElementById('dashboard').classList.remove('hidden');
-      loadUser();
-    }
+function escapeHtml(s){
+  return String(s||"").replace(/[&<>"']/g, c=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 
-    function logout() {
-      currentUser = null;
-      document.getElementById('auth-area').classList.remove('hidden');
-      document.getElementById('dashboard').classList.add('hidden');
-    }
-  </script>
+function msToHuman(ms){
+  const s = Math.floor(ms/1000);
+  const h = Math.floor(s/3600); const m = Math.floor((s%3600)/60); const sec = s%60;
+  if(h>0) return `${h}h ${m}m`;
+  if(m>0) return `${m}m ${sec}s`;
+  return `${sec}s`;
+}
+
+/* update user list simple view */
+function updateUserList(obj){
+  const arr = Object.values(obj || {}).map(x => x.name || x).filter(Boolean);
+  usersEl.textContent = arr.length ? arr.join(", ") : "—";
+}
+
+/* purge expired manually */
+$("purgeExpired").onclick = ()=> {
+  if(useFirebase){
+    db.ref(MSG_NODE).once('value').then(s=>{
+      const val = s.val()||{};
+      const nowTs = now();
+      const updates = {};
+      for(const k in val){
+        if(nowTs - (val[k].ts||0) > DAY_MS) updates[k] = null;
+      }
+      if(Object.keys(updates).length) db.ref(MSG_NODE).update(updates);
+      alert("Purge requested.");
+    });
+  } else {
+    renderMessages(); alert("Local purge done.");
+  }
+};
+
+/* clear local */
+$("clearLocal").onclick = ()=> {
+  localStorage.removeItem(MSG_NODE);
+  alert("Local cache cleared.");
+}
+
+/* small utilities: listen to firebase node changes for external updates */
+if(useFirebase){
+  // also keep users list showing
+  db.ref(USERS_NODE).on('value', s => updateUserList(s.val()||{}));
+}
+
+/* initial render */
+if(useFirebase){
+  // initial fetch will be handled by listener above
+} else renderMessages();
+
+/* small auto-presence start */
+if(username) registerPresence();
+
+/* simple auto-update of time every second */
+setInterval(()=>{
+  const d = new Date();
+  $("timeNow").textContent = `Time: ${d.toLocaleTimeString()}`;
+  $("dateNow").textContent = `Date: ${d.toLocaleDateString()}`;
+},1000);
+
+/* Helper: if firebase not configured, provide a one-click init test option (not required) */
+// (left out to keep file single and small)
+
+</script>
 </body>
 </html>
