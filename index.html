@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mini Bot Hosting Platform</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f6fa; margin: 0; padding: 0; }
+    .container { max-width: 700px; margin: 50px auto; background: #fff; padding: 20px;
+      border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    input, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+    button { background: #4CAF50; color: white; border: none; cursor: pointer; border-radius: 5px; }
+    button:hover { background: #45a049; }
+    .hidden { display: none; }
+    .card { border: 1px solid #ddd; padding: 10px; margin-top: 10px; border-radius: 5px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>💬 Bot Hosting Platform</h1>
+    <div id="auth-area">
+      <h3>Sign up or Login</h3>
+      <input type="text" id="email" placeholder="Enter your email">
+      <input type="password" id="password" placeholder="Enter password">
+      <button onclick="signup()">Sign Up</button>
+      <button onclick="login()">Login</button>
+      <p id="auth-msg"></p>
+    </div>
+
+    <div id="dashboard" class="hidden">
+      <h3>Welcome, <span id="user-email"></span></h3>
+      <p>Coins: <span id="coins">0</span></p>
+      <button onclick="claim()">Claim Daily 10 Coins</button>
+      <h4>Host New Bot (10 coins / 7 days)</h4>
+      <input type="text" id="repo" placeholder="Enter bot name or GitHub repo">
+      <button onclick="hostBot()">Host Bot</button>
+      <h4>Your Bots</h4>
+      <div id="bots"></div>
+      <button onclick="logout()">Logout</button>
+      <p id="msg"></p>
+    </div>
+  </div>
+
+  <script>
+    let currentUser = null;
+
+    async function signup() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const res = await fetch('/signup', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email, password})
+      });
+      document.getElementById('auth-msg').innerText = await res.text();
+    }
+
+    async function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const res = await fetch('/login', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email, password})
+      });
+      const data = await res.json();
+      if (data.success) {
+        currentUser = data.user;
+        showDashboard();
+      } else {
+        document.getElementById('auth-msg').innerText = data.message;
+      }
+    }
+
+    async function claim() {
+      const res = await fetch('/claim', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email: currentUser.email})
+      });
+      document.getElementById('msg').innerText = await res.text();
+      loadUser();
+    }
+
+    async function hostBot() {
+      const repo = document.getElementById('repo').value;
+      const res = await fetch('/host', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email: currentUser.email, repo})
+      });
+      document.getElementById('msg').innerText = await res.text();
+      loadUser();
+    }
+
+    async function loadUser() {
+      const res = await fetch(`/user/${currentUser.email}`);
+      const data = await res.json();
+      document.getElementById('coins').innerText = data.coins;
+      document.getElementById('user-email').innerText = data.email;
+      const botsDiv = document.getElementById('bots');
+      botsDiv.innerHTML = '';
+      data.bots.forEach(bot => {
+        botsDiv.innerHTML += `<div class='card'>🤖 ${bot.repo} — ${bot.active ? 'Active' : 'Expired'} (ends: ${bot.endDate})</div>`;
+      });
+    }
+
+    function showDashboard() {
+      document.getElementById('auth-area').classList.add('hidden');
+      document.getElementById('dashboard').classList.remove('hidden');
+      loadUser();
+    }
+
+    function logout() {
+      currentUser = null;
+      document.getElementById('auth-area').classList.remove('hidden');
+      document.getElementById('dashboard').classList.add('hidden');
+    }
+  </script>
+</body>
+</html>
